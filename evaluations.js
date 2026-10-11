@@ -62,7 +62,7 @@
     const audienceEvidence = `Target customer: ${icp}; market: ${region}.`;
     const briefing = {
       technical: {
-        reasoning: `The proposed ${offer} gives this idea a concrete implementation path. Technical readiness still depends on validating integrations and the scope of the first release.`,
+        reasoning: `The idea proposes ${offer}, giving it a concrete implementation path. Technical readiness still depends on validating integrations and the scope of the first release.`,
         evidence: [`Solution in the brief: ${excerpt(context.solution) || offer + '.'}`, financialEvidence],
         next: kind === 'robot' ? 'Define the pilot interface, safety constraints and one measurable acceptance test.' : 'Prototype the core customer flow and check the supplier or content integrations.'
       },
@@ -72,7 +72,7 @@
         next: kind === 'robot' ? 'Observe the customer process and record throughput, operating conditions and integration requirements.' : 'Map one repetitive workflow and test whether automation improves accuracy or time.'
       },
       research: {
-        reasoning: `The brief describes a problem for ${icp.toLowerCase()}, but a clear description alone does not establish demand. This review prioritizes the frequency and cost of the problem over general interest.`,
+        reasoning: `The brief describes a problem for the target customer (${icp}), but a clear description alone does not establish demand. This review prioritizes the frequency and cost of the problem over general interest.`,
         evidence: [audienceEvidence, stageEvidence],
         next: 'Interview five target customers about their current workaround and the last time this problem occurred.'
       },
@@ -97,7 +97,7 @@
         next: 'Recalculate cash flow with lower sales, higher costs and a delayed launch.'
       },
       economics: {
-        reasoning: `The ${model.toLowerCase()} model needs a positive contribution after acquisition, delivery and support costs. The demo price and cash flow do not yet establish an observed margin per customer.`,
+        reasoning: `The “${model}” model needs a positive contribution after acquisition, delivery and support costs. The demo price and cash flow do not yet establish an observed margin per customer.`,
         evidence: [priceEvidence, financialEvidence],
         next: 'Itemize one transaction and set the maximum affordable acquisition cost before scaling.'
       },
@@ -117,12 +117,12 @@
         next: 'Verify current program requirements, eligible costs and documentation with the relevant funding body.'
       },
       exit: {
-        reasoning: `Long-term value would come from repeatable revenue, customer relationships and ownership of useful assets. The ${model.toLowerCase()} model needs evidence that value can persist beyond the founder's daily work.`,
+        reasoning: `Long-term value would come from repeatable revenue, customer relationships and ownership of useful assets. The “${model}” model needs evidence that value can persist beyond the founder's daily work.`,
         evidence: [priceEvidence, `Proposed offer: ${offer}.`],
         next: 'Record ownership of key assets and identify which customer or delivery processes are transferable.'
       },
       gtm: {
-        reasoning: `The route to ${icp.toLowerCase()} combines ${channels}. A channel list is a useful starting point; prioritization depends on where this specific audience can be reached economically.`,
+        reasoning: `The route to the target customer (${icp}) combines ${channels}. A channel list is a useful starting point; prioritization depends on where this specific audience can be reached economically.`,
         evidence: [audienceEvidence, stageEvidence],
         next: 'Pick one primary channel, a specific offer and a measurable goal for the first customer test.'
       },
@@ -137,7 +137,7 @@
         next: 'Define qualification criteria and record one clear next commitment for each prospect.'
       },
       pricing: {
-        reasoning: `The price of ${money(x.price)} must be credible relative to the benefit for ${icp.toLowerCase()}. The model supplies a starting price, while willingness to pay and package preferences remain assumptions.`,
+        reasoning: `The price of ${money(x.price)} must be credible relative to the benefit for the target customer (${icp}). The model supplies a starting price, while willingness to pay and package preferences remain assumptions.`,
         evidence: [priceEvidence, financialEvidence],
         next: 'Compare two clearly described packages and ask customers to choose at the stated prices.'
       },
@@ -152,7 +152,7 @@
         next: 'List three relevant partners and propose a specific customer benefit and commercial arrangement.'
       },
       legal: {
-        reasoning: `The ${model.toLowerCase()} offer needs clear responsibilities, sales terms and appropriate handling of customer data. This demo identifies review topics; it does not establish legal compliance.`,
+        reasoning: `The “${model}” offer needs clear responsibilities, sales terms and appropriate handling of customer data. This demo identifies review topics; it does not establish legal compliance.`,
         evidence: [`Target jurisdiction and audience: ${region} · ${icp}.`, priceEvidence],
         next: 'Have an appropriate expert review sales terms, data flows and any product-specific obligations.'
       },
@@ -167,7 +167,7 @@
         next: 'Define the first delivery milestone, its dependencies and the customer acceptance criteria.'
       },
       support: {
-        reasoning: `The ${model.toLowerCase()} offer needs an onboarding and support approach that customers can rely on. Service effort and repeat usage affect the economics as well as retention.`,
+        reasoning: `The “${model}” offer needs an onboarding and support approach that customers can rely on. Service effort and repeat usage affect the economics as well as retention.`,
         evidence: [priceEvidence, `Target user: ${icp}.`],
         next: 'Document onboarding, the main support requests and a realistic response commitment.'
       },
