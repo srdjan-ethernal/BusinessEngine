@@ -3,3 +3,5 @@
 [hidden]{display:none!important}
 
 .project-page-links{display:flex;align-items:center;gap:15px;font-size:10px;line-height:1.8;color:#6d617d;margin:10px 13px 0;flex-wrap:wrap}.project-page-links a:hover{color:#5146d8;text-decoration:underline;text-underline-offset:3px}.project-page-links a:focus-visible{outline:2px solid #5146d8;outline-offset:4px;border-radius:2px}.app-footer .project-page-links{margin:0}.sidebar{overflow-y:auto}.sidebar>*{flex-shrink:0}
+.topbar{gap:16px}.topbar .breadcrumb{min-width:0;flex:1}.topbar .breadcrumb strong{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.topbar .breadcrumb .mobile-menu,.topbar .breadcrumb-root,.topbar .breadcrumb-slash{flex-shrink:0}.topbar-right{flex-shrink:0}.topbar .project-page-links{margin:0;flex-wrap:nowrap;white-space:nowrap;gap:16px;font-size:11px;font-weight:600;color:#5146d8}
+@media(max-width:740px){.topbar-right{gap:10px}.topbar .project-page-links{gap:11px;font-size:10px}.topbar-right .demo-tag,.topbar-right .top-avatar{display:none}}
