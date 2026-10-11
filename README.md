@@ -1,23 +1,23 @@
 # Business Engine
 
-Statički demo sajt za pregled i pripremu biznisa. Početna stranica **My business** prikazuje tri primera: **Robot factory**, **Dropshipping** i **Amazon referrals**. Prva dva imaju demo datum početka i zaradu, dok Amazon referrals još nije pokrenut.
+A static demo website for managing and preparing businesses. The **My business** home page shows three examples: **Robot factory**, **Dropshipping**, and **Amazon referrals**. The first two have demo start dates and earnings, while Amazon referrals has not launched yet.
 
-**New business** otvara wizard sa ulaznim parametrima i četiri faze: Product Market Fit, Go-To-Market, Marketing i Sales. Svaki biznis ima zasebne detalje od pripreme do poslovanja. Stranica agenata predstavlja 24 stručna agenta. Faze su ubrzane simulacije koje mogu da se pauziraju i nastave.
+**New business** opens a wizard with input parameters and four stages: Product Market Fit, Go-To-Market, Marketing, and Sales. Each business has its own details, from preparation to operation. The agents page introduces 24 expert agents. Stages are accelerated simulations that can be paused and resumed.
 
-Podaci se čuvaju lokalno u pregledaču (`localStorage`).
+Data is saved locally in the browser (`localStorage`).
 
-## Provera
+## Verification
 
-Ako imate Node.js, pokrenite `node tests/portfolio.cjs`. Provera pokriva odvojene projekte, faze u pozadini, pauzu i nastavak, čuvanje i finansijske izvoze.
+If you have Node.js, run `node tests/portfolio.cjs`. The checks cover independent projects, background stages, pause and resume, persistence, and financial exports.
 
-## Pokretanje
+## Running locally
 
-Otvorite `index.html` u pregledaču ili pokrenite lokalni server iz ovog direktorijuma:
+Open `index.html` in a browser, or start a local server from this directory:
 
 ```sh
 python -m http.server 8080
 ```
 
-Zatim otvorite [http://localhost:8080](http://localhost:8080).
+Then open [http://localhost:8080](http://localhost:8080).
 
-Ovo je demo bez backend-a i povezivanja sa stvarnim AI agentima, prodajom ili naplatom. Svi finansijski podaci, rezultati i prednarudžbine su ilustrativni.
+This is a demo without a backend or connections to real AI agents, sales, or payments. All financial data, results, and preorders are illustrative.

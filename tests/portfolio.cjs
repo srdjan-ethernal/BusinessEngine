@@ -80,7 +80,7 @@ const newId = run('state.id');
 assert.equal(run('portfolio.draft.id'), newId);
 
 // Same names are allowed; record identity must be separate from the name.
-run('applyParams({...state.params,name:"Robot factory",industry:"E-commerce i dropshipping",capital:8000,roi:9,advantages:"Online audience",notes:"Independent store"},true,false)');
+run('applyParams({...state.params,name:"Robot factory",industry:"E-commerce and dropshipping",capital:8000,roi:9,advantages:"Online audience",notes:"Independent store"},true,false)');
 assert.equal(run('portfolio.businesses.length'), 4);
 assert.equal(run('portfolio.businesses.filter(b=>b.params.name==="Robot factory").length'), 2);
 assert.equal(run('portfolio.activeId'), newId);
@@ -158,7 +158,7 @@ assert.equal(run('state.meta.earned'), originalRecords[1].meta.earned);
 run(`selectBusiness(${JSON.stringify(newId)});launchBusiness()`);
 assert.equal(run('state.meta.startedOn'), null);
 assert.equal(run('state.meta.status'), 'planning');
-assert.match(run('window.lastToast'), /četiri faze/);
+assert.match(run('window.lastToast'), /four validation stages/);
 for (let i = 1; i < 4; i++) {
   run(`runPhase(${i})`);
   app.advance(25000);
@@ -188,8 +188,8 @@ assert.equal(run('rankedIdeas(3).every(x=>rankedIdeas(2).some(a=>a.id===x.id))')
 assert.equal(run('rankedIdeas(4).every(x=>Number.isFinite(financial(x).roi)&&Number.isFinite(financial(x).payback)&&financial(x).revenue===x.preorders*x.price)'), true);
 run('showIdea(rankedIdeas(1)[0].id,1)');
 assert.equal(run('window.lastDialog.includes(" · GTM ")'), false);
-assert.equal(run('window.lastDialog.includes("Očekivani ROI")'), true);
-assert.equal(run('window.lastDialog.includes("demo prednarudžbina")'), false);
+assert.equal(run('window.lastDialog.includes("Expected ROI")'), true);
+assert.equal(run('window.lastDialog.includes("demo preorders")'), false);
 run('exportProject()');
 const exported = JSON.parse(run('window.lastDownload.content'));
 assert.equal(exported.project.id, newId);
@@ -200,7 +200,7 @@ assert.equal(typeof exported.results[3].ideas[0].financialModel.revenue, 'number
 run('exportCSV(4)');
 const csv = run('window.lastDownload.content');
 assert.equal(csv.split('\r\n').length, 16);
-assert.equal(csv.includes('DEMO SIMULACIJA'), true);
+assert.equal(csv.includes('DEMO SIMULATION'), true);
 assert.equal(run("esc('<img onerror=1>')"), '&lt;img onerror=1&gt;');
 
 // The entire portfolio and selected record survive a new JS session.
@@ -242,4 +242,133 @@ assert.equal(migrated.run('state.meta.startedOn'), null);
 assert.equal(migrated.run('state.meta.earned'), 0);
 assert.equal(boot(migrated.stored).run('portfolio.businesses.length'), 4, 'Reload must not repeat migration');
 
-console.log('PASS: three demo businesses, independent records and metrics, ID routing, background/concurrent jobs, pause/resume, four-stage launch, zero unearned revenue, selection, financial exports, portfolio/draft reload, legacy migration');
+// Translate exact old v2 demo copy while preserving business identity and runtime data.
+const oldDemoRecords = json('LEGACY_DEMO_BUSINESSES');
+const englishDemoRecords = json('window.DEMO_BUSINESSES');
+const oldV2 = {
+  version: 2,
+  businesses: structuredClone(oldDemoRecords),
+  activeId: 'robot-factory',
+  draft: null,
+};
+oldV2.businesses[0].activeStep = 2;
+oldV2.businesses[0].savedAt = INITIAL_TIME - 40000;
+oldV2.businesses[0].phases = structuredClone(legacy.phases);
+oldV2.businesses[0].meta.earned = 196700;
+oldV2.businesses[0].meta.profit = 48000;
+oldV2.businesses[0].meta.orders = 52;
+oldV2.businesses[0].meta.customers = 21;
+oldV2.businesses[0].meta.monthlyRevenue[0].value = 15555;
+oldV2.businesses[0].meta.activity[0].date = '2026-10-10';
+const localized = boot({ [STORAGE]: JSON.stringify(oldV2) });
+assert.equal(localized.run('portfolio.activeId'), oldV2.activeId);
+assert.equal(localized.run('state.id'), oldV2.activeId);
+assert.equal(localized.run('portfolio.businesses.length'), 3);
+for (let i = 0; i < oldV2.businesses.length; i++) {
+  const before = oldV2.businesses[i];
+  const after = localized.json(`portfolio.businesses[${i}]`);
+  const english = englishDemoRecords[i];
+  assert.equal(after.id, before.id);
+  assert.equal(after.created, before.created);
+  assert.equal(after.activeStep, before.activeStep);
+  assert.equal(after.savedAt, before.savedAt);
+  assert.deepEqual(after.phases, before.phases, 'Copy migration must retain job status and elapsed time');
+  assert.deepEqual(after.params, english.params, 'Untouched demo parameters become English');
+  for (const field of ['kind', 'status', 'startedOn', 'preparedOn', 'earned', 'profit', 'orders', 'customers']) {
+    assert.equal(after.meta[field], before.meta[field], `Migration must preserve ${field}`);
+  }
+  assert.equal(after.meta.description, english.meta.description);
+  assert.equal(after.meta.nextAction, english.meta.nextAction);
+  assert.deepEqual(after.meta.assets, english.meta.assets, 'Untouched asset descriptions become English');
+  assert.deepEqual(after.meta.monthlyRevenue.map(row => row.month), english.meta.monthlyRevenue.map(row => row.month));
+  assert.deepEqual(after.meta.monthlyRevenue.map(row => row.value), before.meta.monthlyRevenue.map(row => row.value));
+  for (let j = 0; j < after.meta.activity.length; j++) {
+    assert.equal(after.meta.activity[j].date, before.meta.activity[j].date);
+    assert.equal(after.meta.activity[j].label, english.meta.activity[j].label);
+    assert.equal(after.meta.activity[j].description, english.meta.activity[j].description);
+  }
+}
+localized.run('persist()');
+assert.deepEqual(boot(localized.stored).json('portfolio.businesses'), localized.json('portfolio.businesses'), 'Translation must be stable after saving and reloading');
+
+// User edits to demo projects and arbitrary custom projects must survive translation.
+const editedDemo = structuredClone(oldDemoRecords[1]);
+editedDemo.params.name = 'Moja prodavnica — lični naziv';
+editedDemo.params.notes = 'Moje napomene: isporuka samo za Niš.';
+editedDemo.params.advantages = 'Moj tim i moja iskustva';
+editedDemo.params.region = 'Niš i okolna mesta';
+editedDemo.params.capital = 19800;
+editedDemo.meta.description = 'Moj opis prodavnice';
+editedDemo.meta.activity[0].description = 'Moja izmenjena evidencija prihoda';
+editedDemo.meta.activity.push({ date: '2026-10-11', label: 'Lična aktivnost', description: 'Sačuvaj moj tekst.' });
+editedDemo.meta.assets[0].description = 'Moja struktura sajta';
+editedDemo.meta.assets.push({ title: 'Moj dokument', type: 'Lično', description: 'Moja dokumentacija' });
+const custom = {
+  version: 1, id: 'user-business-42', created: true, activeStep: 2, savedAt: INITIAL_TIME - 2000,
+  params: {
+    ...json('LEGACY_DEFAULT_PARAMS'),
+    name: 'Moj potpuno novi biznis',
+    notes: 'Ne prevoditi moje ručno napisane beleške.',
+    advantages: 'Moje prednosti osnivača',
+    region: 'Niš', capital: 9000,
+  },
+  phases: structuredClone(legacy.phases),
+  meta: {
+    kind: 'robot', status: 'planning', startedOn: null, preparedOn: '2026-10-01',
+    earned: 125, profit: 40, orders: 2, customers: 2,
+    monthlyRevenue: [{ month: 'Maj', value: 125 }],
+    description: 'Novi biznis u pripremi.', nextAction: 'Unesite parametre i pokrenite evaluaciju.',
+    activity: [{ date: '2026-10-10', label: 'Moja ručna aktivnost', description: 'Moj privatni tekst projekta.' }],
+    assets: [{ title: 'Moj plan', type: 'Lični dokument', description: 'Ručni opis plana.' }],
+  },
+};
+const oldDraft = {
+  ...structuredClone(custom), id: 'draft-42', created: false, activeStep: 0,
+  params: { ...custom.params, name: 'Moj nedovršeni nacrt' },
+  phases: oldDemoRecords[2].phases,
+};
+const editedPortfolio = boot({ [STORAGE]: JSON.stringify({
+  version: 2, businesses: [editedDemo, custom], activeId: custom.id, draft: oldDraft,
+}) });
+const editedAfter = editedPortfolio.json('portfolio.businesses[0]');
+for (const field of ['name', 'notes', 'advantages', 'region', 'capital']) {
+  assert.equal(editedAfter.params[field], editedDemo.params[field], `Demo user edit ${field} must be preserved`);
+}
+assert.equal(editedAfter.params.industry, 'E-commerce and dropshipping');
+assert.equal(editedAfter.meta.description, editedDemo.meta.description);
+assert.equal(editedAfter.meta.nextAction, englishDemoRecords[1].meta.nextAction);
+assert.equal(editedAfter.meta.activity[0].label, englishDemoRecords[1].meta.activity[0].label);
+assert.equal(editedAfter.meta.activity[0].description, editedDemo.meta.activity[0].description);
+assert.deepEqual(editedAfter.meta.activity.at(-1), editedDemo.meta.activity.at(-1));
+assert.equal(editedAfter.meta.assets[0].title, englishDemoRecords[1].meta.assets[0].title);
+assert.equal(editedAfter.meta.assets[0].description, editedDemo.meta.assets[0].description);
+assert.deepEqual(editedAfter.meta.assets.at(-1), editedDemo.meta.assets.at(-1));
+const customAfter = editedPortfolio.json('state');
+assert.equal(customAfter.id, custom.id);
+for (const field of ['name', 'notes', 'advantages', 'region', 'capital']) assert.equal(customAfter.params[field], custom.params[field]);
+assert.equal(customAfter.params.industry, 'Robotics and automation');
+assert.deepEqual(customAfter.phases, custom.phases);
+assert.deepEqual(customAfter.meta.activity, custom.meta.activity);
+assert.deepEqual(customAfter.meta.assets, custom.meta.assets);
+assert.equal(customAfter.meta.description, 'New business in preparation.');
+assert.equal(customAfter.meta.nextAction, 'Enter your parameters and start the evaluation.');
+assert.equal(customAfter.meta.earned, 125);
+assert.equal(customAfter.meta.monthlyRevenue[0].month, 'May');
+assert.equal(customAfter.meta.monthlyRevenue[0].value, 125);
+assert.equal(editedPortfolio.run('portfolio.draft.id'), oldDraft.id);
+assert.equal(editedPortfolio.run('portfolio.draft.params.name'), oldDraft.params.name);
+assert.equal(editedPortfolio.run('portfolio.draft.params.notes'), oldDraft.params.notes);
+assert.equal(editedPortfolio.run('portfolio.draft.params.industry'), 'Robotics and automation');
+assert.deepEqual(editedPortfolio.json('portfolio.draft.phases'), oldDraft.phases);
+
+// The older v1 format also upgrades canonical copy and keeps the custom project.
+const oldV1 = { ...structuredClone(custom), meta: undefined };
+const localizedV1 = boot({ [LEGACY]: JSON.stringify(oldV1) });
+assert.equal(localizedV1.run('selectBusiness("previous-project")'), true);
+assert.equal(localizedV1.run('state.params.name'), oldV1.params.name);
+assert.equal(localizedV1.run('state.params.notes'), oldV1.params.notes);
+assert.equal(localizedV1.run('state.params.industry'), 'Robotics and automation');
+assert.equal(localizedV1.run('state.meta.description'), 'Saved project from the previous version.');
+assert.deepEqual(localizedV1.json('state.phases'), oldV1.phases);
+
+console.log('PASS: three demo businesses, independent records and metrics, ID routing, background/concurrent jobs, pause/resume, four-stage launch, zero unearned revenue, selection, English financial exports, portfolio/draft reload, v1/v2 copy migration and preserved user edits');
