@@ -18,9 +18,10 @@ function boot(initialStorage = {}) {
   const nodes = new Map();
   const node = selector => {
     if (!nodes.has(selector)) nodes.set(selector, {
-      innerHTML: '', textContent: '', dataset: {}, style: {},
+      innerHTML: '', textContent: '', dataset: {}, style: {}, open: false,
       classList: { add() {}, remove() {}, toggle() {} },
       setAttribute() {}, removeAttribute() {}, addEventListener() {},
+      close() { this.open = false; }, showModal() { this.open = true; },
       querySelector: q => node(q), querySelectorAll: () => [],
     });
     return nodes.get(selector);
@@ -37,7 +38,7 @@ function boot(initialStorage = {}) {
   });
   const run = code => vm.runInContext(code, context);
   const json = code => JSON.parse(run(`JSON.stringify(${code})`));
-  for (const file of ['agents.js', 'business-data.js']) {
+  for (const file of ['agents.js', 'business-data.js', 'evaluations.js']) {
     vm.runInContext(fs.readFileSync(path.join(dist, file), 'utf8'), context, { filename: file });
   }
   const fullSource = fs.readFileSync(path.join(dist, 'app.js'), 'utf8');
@@ -371,4 +372,156 @@ assert.equal(localizedV1.run('state.params.industry'), 'Robotics and automation'
 assert.equal(localizedV1.run('state.meta.description'), 'Saved project from the previous version.');
 assert.deepEqual(localizedV1.json('state.phases'), oldV1.phases);
 
-console.log('PASS: three demo businesses, independent records and metrics, ID routing, background/concurrent jobs, pause/resume, four-stage launch, zero unearned revenue, selection, English financial exports, portfolio/draft reload, v1/v2 copy migration and preserved user edits');
+// Score details must expose the same individual scores that produced existing rankings.
+// This independent legacy formula catches changed seeds, stage indexing and rounding.
+function legacyHash(value) {
+  let result = 0;
+  for (const char of value) result = (result * 31 + char.charCodeAt(0)) >>> 0;
+  return result;
+}
+function legacyScores(params, ideaId, stage) {
+  const seed = legacyHash(JSON.stringify(params));
+  return Array.from({ length: 24 }, (_, index) =>
+    62 + (legacyHash(seed + '|' + (ideaId - 1) + '|' + stage + '|' + index) % 370) / 10);
+}
+function roundedAverage(scores) {
+  return Math.round(scores.reduce((sum, value) => sum + value, 0) / scores.length * 10) / 10;
+}
+const evaluations = boot();
+evaluations.run('selectBusiness("robot-factory")');
+const scoredParams = evaluations.json('state.params');
+const agentMetadata = evaluations.json('window.AGENTS');
+const scoredIdeas = evaluations.json('allIdeas()');
+for (const idea of scoredIdeas) {
+  for (const stage of [1, 2, 3, 4]) {
+    const ratings = evaluations.json(`window.AgentEvaluations.scores(state.params,${idea.id},${stage},window.AGENTS)`);
+    assert.equal(ratings.length, 24);
+    assert.equal(new Set(ratings.map(rating => rating.id)).size, 24);
+    assert.deepEqual(ratings.map(rating => rating.score), legacyScores(scoredParams, idea.id, stage));
+    for (let index = 0; index < ratings.length; index++) {
+      const rating = ratings[index];
+      assert.ok(Number.isFinite(rating.score) && rating.score >= 62 && rating.score < 99);
+      for (const field of ['id', 'name', 'role', 'category', 'code']) {
+        assert.equal(rating[field], agentMetadata[index][field], `Score row retains agent ${field}`);
+      }
+    }
+    const average = evaluations.run(`window.AgentEvaluations.average(window.AgentEvaluations.scores(state.params,${idea.id},${stage},window.AGENTS))`);
+    assert.equal(average, roundedAverage(ratings.map(rating => rating.score)));
+    if (stage === 1) assert.equal(average, idea.score, 'PMF displayed average agrees with all 24 score details');
+    if (stage === 2) assert.equal(average, idea.gtmScore, 'GTM displayed average agrees with all 24 score details');
+    if (stage === 3) {
+      const seed = legacyHash(JSON.stringify(scoredParams));
+      const metricScore = 65 + (legacyHash('m' + seed + (idea.id - 1)) % 300) / 10;
+      assert.equal(Math.round((average * .4 + metricScore * .6) * 10) / 10, idea.marketingScore,
+        'Marketing remains the documented 40% agents / 60% metrics combination');
+    }
+  }
+}
+const robotRatings = evaluations.json('window.AgentEvaluations.scores(state.params,1,1,window.AGENTS)');
+evaluations.run('selectBusiness("dropshipping")');
+assert.notDeepEqual(evaluations.json('window.AgentEvaluations.scores(state.params,1,1,window.AGENTS)'), robotRatings,
+  'Score details use the selected business parameters, never a different portfolio record');
+evaluations.run('selectBusiness("robot-factory")');
+assert.deepEqual(evaluations.json('window.AgentEvaluations.scores(state.params,1,1,window.AGENTS)'), robotRatings,
+  'Repeated navigation produces stable scores');
+
+// Every visible average in the stage tables and plan dialog opens its own context.
+for (const origin of ['project', 'results']) {
+  evaluations.run(`route=${JSON.stringify(origin)};showAll=false;showEliminated=false`);
+  for (const stage of [1, 2, 3, 4]) {
+    const table = evaluations.run(`resultsTable(${stage})`);
+    const topFive = evaluations.json(`rankedIdeas(${stage}).slice(0,5)`);
+    for (const idea of topFive) {
+      const href = evaluations.run(`scoreHref(${idea.id},${stage},${JSON.stringify(origin)})`);
+      assert.ok(href.startsWith('#evaluations/robot-factory/'), 'Score links are actual full-page routes');
+      assert.ok(table.includes(`href="${href}"`), `Stage ${stage} score is linked from ${origin}`);
+    }
+    assert.equal((table.match(/href="#evaluations\//g) || []).length, stage === 3 ? 10 : 5);
+  }
+  const finalIdeaId = evaluations.run('rankedIdeas(4)[0].id');
+  evaluations.run(`showIdea(${finalIdeaId},4)`);
+  const plan = evaluations.run('window.lastDialog');
+  for (const stage of [1, 2, 3, 4]) {
+    assert.ok(plan.includes(`href="${evaluations.run(`scoreHref(${finalIdeaId},${stage},${JSON.stringify(origin)})`)}"`),
+      `Business plan links its stage ${stage} average`);
+  }
+}
+
+// Deep links select their business and only expose completed, eligible evaluations.
+for (const origin of ['project', 'results']) {
+  for (const stage of [1, 2, 3, 4]) {
+    evaluations.run('selectBusiness("robot-factory")');
+    const ideaId = evaluations.run(`rankedIdeas(${stage})[0].id`);
+    assert.equal(evaluations.run(`evaluationRouteValid(${stage},${ideaId})`), true);
+    evaluations.run('selectBusiness("dropshipping")');
+    evaluations.run(`location.hash=${JSON.stringify(`#evaluations/robot-factory/${stage}/${ideaId}/${origin}`)};changeRoute()`);
+    assert.equal(evaluations.run('state.id'), 'robot-factory');
+    assert.equal(evaluations.run('route'), 'evaluations');
+    assert.equal(evaluations.run('state.activeStep'), stage, 'Wizard return context retains the clicked stage');
+    assert.deepEqual(evaluations.json('evaluationSelection'), { stage, id: ideaId, origin });
+    const returnUrl = evaluations.run(`evaluationPayload(${stage},${ideaId},${JSON.stringify(origin)}).returnUrl`);
+    assert.equal(returnUrl, `#${origin}/robot-factory${origin === 'results' ? '/' + stage : ''}`);
+    evaluations.run(`location.hash=${JSON.stringify(returnUrl)};changeRoute()`);
+    assert.equal(evaluations.run('route'), origin);
+    if (origin === 'results') {
+      assert.equal(evaluations.run('resultStagePreference'), stage, 'Result return context retains the selected table');
+    }
+  }
+}
+const incomplete = boot();
+incomplete.run('selectBusiness("amazon-referrals")');
+assert.equal(incomplete.run('evaluationRouteValid(1,1)'), false);
+incomplete.run('location.hash="#evaluations/amazon-referrals/1/1/project";changeRoute()');
+assert.notEqual(incomplete.run('route'), 'evaluations', 'An unrun stage has no completed assessments');
+evaluations.run('selectBusiness("robot-factory")');
+const eliminatedId = evaluations.run('allIdeas().find(idea=>!rankedIdeas(1).some(selected=>selected.id===idea.id)).id');
+assert.equal(evaluations.run(`evaluationRouteValid(1,${eliminatedId})`), true, 'PMF input includes all 100 ideas');
+assert.equal(evaluations.run(`evaluationRouteValid(2,${eliminatedId})`), false, 'GTM evaluates only the 50 surviving PMF ideas');
+const marketingIneligibleId = evaluations.run('rankedIdeas(1).find(idea=>!rankedIdeas(2).some(selected=>selected.id===idea.id)).id');
+assert.equal(evaluations.run(`evaluationRouteValid(3,${marketingIneligibleId})`), false);
+for (const hash of [
+  '#evaluations/nonexistent/1/1/project', '#evaluations/%ZZ/1/1/project',
+  '#evaluations/robot-factory/0/1/project', '#evaluations/robot-factory/5/1/project',
+  '#evaluations/robot-factory/NaN/1/project', '#evaluations/robot-factory/1x/1/project',
+  '#evaluations/robot-factory/1/0/project', '#evaluations/robot-factory/1/101/project',
+  '#evaluations/robot-factory/1/1.5/project', '#evaluations/robot-factory/1/x/project',
+  '#evaluations/robot-factory/1', '#evaluations/robot-factory',
+]) {
+  evaluations.run(`location.hash=${JSON.stringify(hash)};changeRoute()`);
+  assert.notEqual(evaluations.run('route'), 'evaluations', `Invalid detail route is rejected: ${hash}`);
+}
+
+// The full page explains its math and contains one assessment for every named agent.
+evaluations.run('selectBusiness("robot-factory")');
+for (const stage of [1, 2, 3, 4]) {
+  const ideaId = evaluations.run(`rankedIdeas(${stage})[0].id`);
+  const payload = evaluations.json(`evaluationPayload(${stage},${ideaId},"project")`);
+  const html = evaluations.run(`window.AgentEvaluations.render(evaluationPayload(${stage},${ideaId},"project"))`);
+  assert.equal((html.match(/class="evaluation-card[" ]/g) || []).length, 24);
+  for (const agent of agentMetadata) {
+    assert.ok(html.includes(`data-agent-id="${agent.id}"`));
+    assert.ok(html.includes(agent.name));
+    assert.ok(html.includes(agent.role));
+  }
+  assert.equal((html.match(/>Reasoning</g) || []).length, 24);
+  assert.equal((html.match(/>Evidence</g) || []).length, 24);
+  assert.equal((html.match(/>Next step</g) || []).length, 24);
+  assert.match(html, /simulat/i, 'The page identifies the demo nature of scores and assessments');
+  assert.ok(html.includes(payload.returnUrl), 'Back navigation returns to the chosen project context');
+  if (stage === 3) {
+    assert.ok(html.includes('40%') && html.includes('60%'), 'Marketing explains metrics and agent weights');
+    assert.equal(payload.combinedScore, evaluations.run(`allIdeas().find(idea=>idea.id===${ideaId}).marketingScore`));
+  }
+}
+const unsafePayload = evaluations.json('evaluationPayload(1,rankedIdeas(1)[0].id,"project")');
+unsafePayload.business.params.name = '<img src=x onerror=alert(1)>';
+unsafePayload.business.params.region = '<script>alert(2)</script>';
+unsafePayload.business.params.advantages = '<svg onload=alert(3)>';
+unsafePayload.idea.name = '<iframe src=javascript:alert(4)>';
+const unsafeHTML = evaluations.run(`window.AgentEvaluations.render(${JSON.stringify(unsafePayload)})`);
+for (const raw of ['<img src=x', '<script>alert(2)', '<svg onload=', '<iframe src=javascript:']) {
+  assert.equal(unsafeHTML.includes(raw), false, 'Custom business content cannot become active HTML');
+}
+assert.ok(unsafeHTML.includes('&lt;img src=x') && unsafeHTML.includes('&lt;iframe src=javascript:'));
+
+console.log('PASS: portfolio and migration regression suite; unchanged ranking scores; 24 independent agent assessments; linked stage and plan averages; context-aware valid deep links; unavailable and malformed routes; score explanations and escaped custom content');

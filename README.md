@@ -6,6 +6,8 @@ A static demo website for managing and preparing businesses. The **My business**
 
 Data is saved locally in the browser (`localStorage`).
 
+Select an average agent score in any wizard stage, result table, or business plan to open the individual evaluations. Each idea and completed stage has 24 simulated agent scores, an explanation, evidence, and a suggested next step. Marketing shows the agent average separately from its combined score (40% agents and 60% market metrics).
+
 ## Verification
 
 If you have Node.js, run `node tests/portfolio.cjs`. The checks cover independent projects, background stages, pause and resume, persistence, and financial exports.
