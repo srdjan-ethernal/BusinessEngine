@@ -6,6 +6,8 @@ A static demo website for managing and preparing businesses. The **My business**
 
 Data is saved locally in the browser (`localStorage`).
 
+The [product marketing page](https://srdjan-ethernal.github.io/BusinessEngine/marketing.html) explains the BusinessEngine workflow and links to the demo. The [investment brief](https://srdjan-ethernal.github.io/BusinessEngine/investment.html) describes the product thesis, business model hypotheses, milestones, and an illustrative development budget. Both are accessible from the workspace navigation. All investment figures are planning examples, not commercial traction or an active fundraising offer.
+
 Select an average agent score in any wizard stage, result table, or business plan to open the individual evaluations. Each idea and completed stage has 24 simulated agent scores, an explanation, evidence, and a suggested next step. Marketing shows the agent average separately from its combined score (40% agents and 60% market metrics).
 
 ## Verification
