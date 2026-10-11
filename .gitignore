@@ -1,0 +1,8 @@
+.env
+.env.*
+!.env.example
+node_modules/
+.openai/
+.DS_Store
+Thumbs.db
+*.log
